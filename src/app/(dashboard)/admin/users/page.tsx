@@ -47,7 +47,7 @@ export default function AdminUsersPage() {
     { key: "actions", header: "", render: (r: Record<string, unknown>) => (
       <div className="flex gap-1">
         <Button size="sm" variant="outline" asChild><Link href={`/admin/users/${r.id}`}>Edit</Link></Button>
-        {r.isActive && <Button size="sm" variant="ghost" onClick={() => setDeactivateId(r.id as string)}>Deactivate</Button>}
+        {!!r.isActive && <Button size="sm" variant="ghost" onClick={() => setDeactivateId(r.id as string)}>Deactivate</Button>}
       </div>
     )},
   ];

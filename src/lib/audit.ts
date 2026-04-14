@@ -8,7 +8,7 @@ export async function logAudit(input: AuditLogInput): Promise<void> {
         userId: input.userId,
         eventKey: input.eventKey,
         details: input.details,
-        metadata: input.metadata ?? undefined,
+        metadata: (input.metadata ?? undefined) as import("@prisma/client").Prisma.InputJsonValue | undefined,
         ipAddress: input.ipAddress,
         userAgent: input.userAgent,
         module: input.module,

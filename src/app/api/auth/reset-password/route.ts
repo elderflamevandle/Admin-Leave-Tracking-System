@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { hashPassword, hashToken, validatePasswordStrength } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { token, password } = await request.json();

@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { verifyAccessToken } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");

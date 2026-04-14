@@ -5,6 +5,8 @@ import { parsePagination, buildPaginationMeta, calculateWorkingDays, dateRangesO
 import { logAudit, getClientInfo } from "@/lib/audit";
 import { notifyAdmins } from "@/lib/notifications";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const auth = await getAuthFromHeaders();
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
     where: { userId: auth.userId, status: { in: ["pending", "approved"] } },
   });
 
-  const overlap = existing.some((req) =>
+  const overlap = existing.some((req: typeof existing[0]) =>
     dateRangesOverlap(start, end, new Date(req.startDate), new Date(req.endDate))
   );
   if (overlap) {

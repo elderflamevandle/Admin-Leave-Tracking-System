@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getAuthFromHeaders } from "@/lib/auth";
 import { parsePagination, buildPaginationMeta } from "@/lib/utils";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const auth = await getAuthFromHeaders();
   if (!auth || auth.role !== "admin") {

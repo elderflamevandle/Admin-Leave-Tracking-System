@@ -30,7 +30,7 @@ export function Sidebar() {
   };
 
   const getIcon = (name: string) => {
-    const Icon = (LucideIcons as Record<string, React.ComponentType<{ className?: string }>>)[name];
+    const Icon = (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[name];
     return Icon ? <Icon className="h-4 w-4 shrink-0" /> : null;
   };
 

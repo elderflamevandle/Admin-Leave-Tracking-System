@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getAuthFromHeaders } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const auth = await getAuthFromHeaders();
   if (!auth || auth.role !== "admin") {
@@ -10,7 +12,7 @@ export async function GET() {
   }
 
   const settings = await db.platformSetting.findMany({ orderBy: { key: "asc" } });
-  const settingsMap = Object.fromEntries(settings.map((s) => [s.key, s.value]));
+  const settingsMap = Object.fromEntries(settings.map((s: { key: string; value: unknown }) => [s.key, s.value]));
 
   return NextResponse.json({ success: true, data: settingsMap });
 }

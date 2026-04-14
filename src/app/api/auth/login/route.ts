@@ -10,6 +10,8 @@ import {
 import { logAudit, getClientInfo } from "@/lib/audit";
 import type { RoleName } from "@/types";
 
+export const dynamic = 'force-dynamic';
+
 const LOCKOUT_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 

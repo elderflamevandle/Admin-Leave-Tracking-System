@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getAuthFromHeaders } from "@/lib/auth";
 import { parsePagination, buildPaginationMeta } from "@/lib/utils";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const auth = await getAuthFromHeaders();
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
     db.user.count({ where }),
   ]);
 
-  const safeUsers = users.map(({ passwordHash: _, ...u }) => u);
+  const safeUsers = users.map(({ passwordHash: _pw, ...u }) => u);
 
   return NextResponse.json({
     success: true,

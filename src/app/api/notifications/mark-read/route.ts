@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthFromHeaders } from "@/lib/auth";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST() {
   const auth = await getAuthFromHeaders();
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

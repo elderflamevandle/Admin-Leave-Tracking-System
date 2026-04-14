@@ -4,6 +4,8 @@ import { getAuthFromHeaders } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

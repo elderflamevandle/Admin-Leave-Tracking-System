@@ -4,6 +4,8 @@ import { getAuthFromHeaders } from "@/lib/auth";
 import { parsePagination, buildPaginationMeta } from "@/lib/utils";
 import { logAudit, getClientInfo } from "@/lib/audit";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const auth = await getAuthFromHeaders();
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

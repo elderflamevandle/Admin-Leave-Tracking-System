@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { createAccessToken, verifyRefreshToken, hashToken } from "@/lib/auth";
 import type { RoleName } from "@/types";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const refreshToken = request.cookies.get("refreshToken")?.value;

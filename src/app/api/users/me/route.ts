@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getAuthFromHeaders, hashPassword, verifyPassword, validatePasswordStrength } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const auth = await getAuthFromHeaders();
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
