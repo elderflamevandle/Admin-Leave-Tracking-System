@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { compare, hash } from "bcryptjs";
+import { headers } from "next/headers";
 import type { JWTPayload, RoleName } from "@/types";
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
@@ -83,4 +84,18 @@ export function validatePasswordStrength(password: string): string | null {
 export function getRefreshTokenExpiry(rememberMe: boolean): Date {
   const days = rememberMe ? 30 : 7;
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
+export async function getAuthFromHeaders(): Promise<{
+  userId: string;
+  email: string;
+  role: RoleName;
+} | null> {
+  const headersList = await headers();
+  const userId = headersList.get("x-user-id");
+  const email = headersList.get("x-user-email");
+  const role = headersList.get("x-user-role") as RoleName | null;
+
+  if (!userId || !email || !role) return null;
+  return { userId, email, role };
 }
