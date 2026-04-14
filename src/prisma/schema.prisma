@@ -1,0 +1,564 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// PHASE 1 — ACTIVE TABLES
+// ============================================================
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  displayName String   @map("display_name")
+  permissions Json     @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                  String    @id @default(uuid()) @db.Uuid
+  fullName            String    @map("full_name")
+  email               String    @unique
+  passwordHash        String    @map("password_hash")
+  roleId              String    @map("role_id") @db.Uuid
+  department          String?
+  avatarUrl           String?   @map("avatar_url")
+  joinDate            DateTime  @default(now()) @map("join_date") @db.Date
+  leaveBalance        Int       @default(20) @map("leave_balance")
+  isActive            Boolean   @default(true) @map("is_active")
+  forcePasswordChange Boolean   @default(false) @map("force_password_change")
+  lastLoginAt         DateTime? @map("last_login_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  role                Role                @relation(fields: [roleId], references: [id])
+  sessions            Session[]
+  leaveRequests       LeaveRequest[]      @relation("UserLeaveRequests")
+  reviewedLeaves      LeaveRequest[]      @relation("ReviewedLeaveRequests")
+  timeLogEntries      TimeLogEntry[]      @relation("UserTimeLogs")
+  amendedTimeLogs     TimeLogEntry[]      @relation("AmendedTimeLogs")
+  activityLogEntries  ActivityLogEntry[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  passwordResetTokens PasswordResetToken[]
+  loginAttempts       LoginAttempt[]
+
+  // Phase 2 relations
+  assignedDeals       Deal[]              @relation("AssignedDeals")
+  createdDeals        Deal[]              @relation("CreatedDeals")
+  contacts            Contact[]
+  contactInteractions ContactInteraction[]
+  researchDocs        ResearchDoc[]
+  legalDocuments      LegalDocument[]
+  submittedExpenses   Expense[]           @relation("SubmittedExpenses")
+  reviewedExpenses    Expense[]           @relation("ReviewedExpenses")
+  createdInvoices     Invoice[]
+  createdFolders      DocFolder[]
+  uploadedFiles       DocFile[]
+  ownedProjects       Project[]
+  projectMemberships  ProjectMember[]
+  assignedTasks       ProjectTask[]
+  updatedSettings     PlatformSetting[]
+
+  @@map("users")
+}
+
+model Session {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  tokenHash        String   @map("token_hash")
+  refreshTokenHash String   @map("refresh_token_hash")
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  ipAddress        String   @map("ip_address")
+  userAgent        String   @map("user_agent")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("sessions")
+}
+
+model LoginAttempt {
+  id          String   @id @default(uuid()) @db.Uuid
+  email       String
+  ipAddress   String   @map("ip_address")
+  userId      String?  @map("user_id") @db.Uuid
+  attemptedAt DateTime @default(now()) @map("attempted_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("login_attempts")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("password_reset_tokens")
+}
+
+enum LeaveType {
+  annual
+  sick
+  personal
+  other
+
+  @@map("leave_type")
+}
+
+enum LeaveStatus {
+  pending
+  approved
+  rejected
+  cancelled
+
+  @@map("leave_status")
+}
+
+model LeaveRequest {
+  id           String      @id @default(uuid()) @db.Uuid
+  userId       String      @map("user_id") @db.Uuid
+  leaveType    LeaveType   @map("leave_type")
+  startDate    DateTime    @map("start_date") @db.Date
+  endDate      DateTime    @map("end_date") @db.Date
+  workingDays  Int         @map("working_days")
+  reason       String?
+  status       LeaveStatus @default(pending)
+  reviewedBy   String?     @map("reviewed_by") @db.Uuid
+  reviewerNote String?     @map("reviewer_note")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  user     User  @relation("UserLeaveRequests", fields: [userId], references: [id])
+  reviewer User? @relation("ReviewedLeaveRequests", fields: [reviewedBy], references: [id])
+
+  @@map("leave_requests")
+}
+
+model TimeLogEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  logDate       DateTime @map("log_date") @db.Date
+  loginTime     String   @map("login_time")
+  logoutTime    String?  @map("logout_time")
+  breakMinutes  Int      @default(0) @map("break_minutes")
+  hoursWorked   Decimal? @map("hours_worked") @db.Decimal(4, 2)
+  notes         String?
+  isAmended     Boolean  @default(false) @map("is_amended")
+  amendedBy     String?  @map("amended_by") @db.Uuid
+  amendmentNote String?  @map("amendment_note")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user    User  @relation("UserTimeLogs", fields: [userId], references: [id])
+  amender User? @relation("AmendedTimeLogs", fields: [amendedBy], references: [id])
+
+  @@unique([userId, logDate])
+  @@map("time_log_entries")
+}
+
+model ActivityLogEntry {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  logDate    DateTime @map("log_date") @db.Date
+  activities String
+  blockers   String?
+  tags       String[] @default([])
+  isLocked   Boolean  @default(false) @map("is_locked")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, logDate])
+  @@map("activity_log_entries")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  eventKey  String   @map("event_key")
+  details   String
+  metadata  Json?
+  ipAddress String   @map("ip_address")
+  userAgent String   @map("user_agent")
+  module    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  link      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model PlatformSetting {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  updater User? @relation(fields: [updatedBy], references: [id])
+
+  @@map("platform_settings")
+}
+
+// ============================================================
+// PHASE 2 — SCAFFOLD TABLES (empty, do not populate)
+// ============================================================
+
+enum DealStage {
+  sourcing
+  review
+  screening
+  partner_meeting
+  diligence
+  term_sheet
+  closed_won
+  closed_lost
+
+  @@map("deal_stage")
+}
+
+model Deal {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyName String    @map("company_name")
+  sector      String
+  stage       DealStage @default(sourcing)
+  dealSize    Decimal?  @map("deal_size") @db.Decimal(15, 2)
+  thesisFit   Int?      @map("thesis_fit")
+  assignedTo  String    @map("assigned_to") @db.Uuid
+  leadContact String?   @map("lead_contact") @db.Uuid
+  notes       String?
+  createdBy   String    @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  assignee       User           @relation("AssignedDeals", fields: [assignedTo], references: [id])
+  creator        User           @relation("CreatedDeals", fields: [createdBy], references: [id])
+  leadContactRef Contact?       @relation(fields: [leadContact], references: [id])
+  researchDocs   ResearchDoc[]
+  legalDocuments LegalDocument[]
+
+  @@map("deals")
+}
+
+enum ContactStatus {
+  to_contact
+  contacted
+  in_discussion
+  relationship
+  not_interested
+
+  @@map("contact_status")
+}
+
+model Contact {
+  id              String        @id @default(uuid()) @db.Uuid
+  fullName        String        @map("full_name")
+  company         String
+  role            String
+  email           String
+  phone           String?
+  linkedinUrl     String?       @map("linkedin_url")
+  status          ContactStatus @default(to_contact)
+  lastContactedAt DateTime?     @map("last_contacted_at")
+  notes           String?
+  tags            String[]      @default([])
+  createdBy       String        @map("created_by") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  creator      User                 @relation(fields: [createdBy], references: [id])
+  deals        Deal[]
+  interactions ContactInteraction[]
+
+  @@map("contacts")
+}
+
+enum InteractionType {
+  email
+  call
+  meeting
+  linkedin
+  other
+
+  @@map("interaction_type")
+}
+
+model ContactInteraction {
+  id              String          @id @default(uuid()) @db.Uuid
+  contactId       String          @map("contact_id") @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  type            InteractionType
+  notes           String
+  interactionDate DateTime        @map("interaction_date")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  contact Contact @relation(fields: [contactId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("contact_interactions")
+}
+
+model ResearchDoc {
+  id           String   @id @default(uuid()) @db.Uuid
+  title        String
+  content      String
+  tags         String[] @default([])
+  linkedDealId String?  @map("linked_deal_id") @db.Uuid
+  authorId     String   @map("author_id") @db.Uuid
+  version      Int      @default(1)
+  isPublished  Boolean  @default(false) @map("is_published")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  linkedDeal Deal? @relation(fields: [linkedDealId], references: [id])
+  author     User  @relation(fields: [authorId], references: [id])
+
+  @@map("research_docs")
+}
+
+enum LegalDocType {
+  nda
+  term_sheet
+  sha
+  employment
+  fund_doc
+  other
+
+  @@map("legal_doc_type")
+}
+
+model LegalDocument {
+  id             String       @id @default(uuid()) @db.Uuid
+  title          String
+  docType        LegalDocType @map("doc_type")
+  fileUrl        String       @map("file_url")
+  fileSize       Int          @map("file_size")
+  relatedCompany String?      @map("related_company")
+  relatedDealId  String?      @map("related_deal_id") @db.Uuid
+  signedDate     DateTime?    @map("signed_date") @db.Date
+  expiryDate     DateTime?    @map("expiry_date") @db.Date
+  parties        String[]     @default([])
+  uploadedBy     String       @map("uploaded_by") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  relatedDeal Deal? @relation(fields: [relatedDealId], references: [id])
+  uploader    User  @relation(fields: [uploadedBy], references: [id])
+
+  @@map("legal_documents")
+}
+
+enum ExpenseCategory {
+  travel
+  software
+  legal
+  marketing
+  office
+  other
+
+  @@map("expense_category")
+}
+
+enum ExpenseStatus {
+  pending
+  approved
+  rejected
+
+  @@map("expense_status")
+}
+
+model Expense {
+  id          String          @id @default(uuid()) @db.Uuid
+  submittedBy String          @map("submitted_by") @db.Uuid
+  amount      Decimal         @db.Decimal(12, 2)
+  currency    String          @default("USD")
+  category    ExpenseCategory
+  description String
+  receiptUrl  String?         @map("receipt_url")
+  expenseDate DateTime        @map("expense_date") @db.Date
+  status      ExpenseStatus   @default(pending)
+  reviewedBy  String?         @map("reviewed_by") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  submitter User  @relation("SubmittedExpenses", fields: [submittedBy], references: [id])
+  reviewer  User? @relation("ReviewedExpenses", fields: [reviewedBy], references: [id])
+
+  @@map("expenses")
+}
+
+enum InvoiceStatus {
+  unpaid
+  paid
+  overdue
+  cancelled
+
+  @@map("invoice_status")
+}
+
+model Invoice {
+  id        String        @id @default(uuid()) @db.Uuid
+  vendor    String
+  amount    Decimal       @db.Decimal(12, 2)
+  currency  String        @default("USD")
+  dueDate   DateTime      @map("due_date") @db.Date
+  paidDate  DateTime?     @map("paid_date") @db.Date
+  status    InvoiceStatus @default(unpaid)
+  notes     String?
+  createdBy String        @map("created_by") @db.Uuid
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@map("invoices")
+}
+
+model DocFolder {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  parentFolderId String?  @map("parent_folder_id") @db.Uuid
+  accessRoles    String[] @default([]) @map("access_roles")
+  createdBy      String   @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  parentFolder DocFolder?  @relation("FolderHierarchy", fields: [parentFolderId], references: [id])
+  childFolders DocFolder[] @relation("FolderHierarchy")
+  files        DocFile[]
+  creator      User        @relation(fields: [createdBy], references: [id])
+
+  @@map("doc_folders")
+}
+
+model DocFile {
+  id         String   @id @default(uuid()) @db.Uuid
+  folderId   String   @map("folder_id") @db.Uuid
+  name       String
+  fileUrl    String   @map("file_url")
+  fileSize   Int      @map("file_size")
+  fileType   String   @map("file_type")
+  version    Int      @default(1)
+  uploadedBy String   @map("uploaded_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  folder   DocFolder @relation(fields: [folderId], references: [id])
+  uploader User      @relation(fields: [uploadedBy], references: [id])
+
+  @@map("doc_files")
+}
+
+enum ProjectStatus {
+  planning
+  in_progress
+  on_hold
+  completed
+
+  @@map("project_status")
+}
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  description String
+  status      ProjectStatus @default(planning)
+  startDate   DateTime      @map("start_date") @db.Date
+  endDate     DateTime      @map("end_date") @db.Date
+  ownerId     String        @map("owner_id") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  owner      User               @relation(fields: [ownerId], references: [id])
+  members    ProjectMember[]
+  milestones ProjectMilestone[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id") @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  role      String @default("contributor")
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+enum MilestoneStatus {
+  pending
+  completed
+
+  @@map("milestone_status")
+}
+
+model ProjectMilestone {
+  id        String          @id @default(uuid()) @db.Uuid
+  projectId String          @map("project_id") @db.Uuid
+  title     String
+  dueDate   DateTime        @map("due_date") @db.Date
+  status    MilestoneStatus @default(pending)
+  sortOrder Int             @map("sort_order")
+
+  project Project       @relation(fields: [projectId], references: [id])
+  tasks   ProjectTask[]
+
+  @@map("project_milestones")
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+  blocked
+
+  @@map("task_status")
+}
+
+model ProjectTask {
+  id          String     @id @default(uuid()) @db.Uuid
+  milestoneId String     @map("milestone_id") @db.Uuid
+  title       String
+  description String?
+  assignedTo  String?    @map("assigned_to") @db.Uuid
+  dueDate     DateTime?  @map("due_date") @db.Date
+  status      TaskStatus @default(todo)
+  notes       String?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  milestone ProjectMilestone @relation(fields: [milestoneId], references: [id])
+  assignee  User?            @relation(fields: [assignedTo], references: [id])
+
+  @@map("project_tasks")
+}
