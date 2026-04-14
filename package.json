@@ -10,7 +10,10 @@
     "prisma:migrate": "prisma migrate dev --schema src/prisma/schema.prisma",
     "prisma:generate": "prisma generate --schema src/prisma/schema.prisma",
     "prisma:seed": "tsx src/prisma/seed.ts",
-    "prisma:studio": "prisma studio --schema src/prisma/schema.prisma"
+    "prisma:studio": "prisma studio --schema src/prisma/schema.prisma",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@prisma/client": "^7.7.0",
