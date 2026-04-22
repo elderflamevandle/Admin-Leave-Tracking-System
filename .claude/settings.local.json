@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_claude-mem_mcp-search__smart_outline",
+      "mcp__plugin_claude-mem_mcp-search__get_observations",
+      "Bash(powershell:*)",
+      "Bash(pnpm --version)",
+      "Bash(npx --version)",
+      "Bash(corepack enable:*)",
+      "Bash(corepack prepare:*)",
+      "Bash(npm install:*)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-pnpm --yes)",
+      "Read(//tmp/tmp.jRWyv1n9i2/nextapp/**)",
+      "Read(//tmp/tmp.jRWyv1n9i2/nextapp/src/**)"
+    ]
+  }
+}
