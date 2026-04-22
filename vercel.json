@@ -1,13 +1,5 @@
 {
   "framework": "nextjs",
   "buildCommand": "pnpm build",
-  "installCommand": "pnpm install",
-  "env": {
-    "DATABASE_URL": "@database-url",
-    "DIRECT_URL": "@direct-url",
-    "JWT_SECRET": "@jwt-secret",
-    "JWT_REFRESH_SECRET": "@jwt-refresh-secret",
-    "RESEND_API_KEY": "@resend-api-key",
-    "NEXT_PUBLIC_APP_URL": "@next-public-app-url"
-  }
+  "installCommand": "pnpm install --frozen-lockfile"
 }

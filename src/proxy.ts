@@ -16,7 +16,7 @@ const PUBLIC_PATHS = [
 
 const ADMIN_PATHS = ["/admin", "/api/admin"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
