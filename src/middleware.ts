@@ -31,13 +31,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const isApi = pathname.startsWith("/api/");
+
+  if (!isApi) {
+    const refreshToken = request.cookies.get("refreshToken")?.value;
+    if (!refreshToken) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.next();
+  }
+
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
 
   if (!token) {
-    if (!pathname.startsWith("/api/")) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
     return NextResponse.json(
       { success: false, error: "Authentication required" },
       { status: 401 }
@@ -49,9 +56,6 @@ export async function middleware(request: NextRequest) {
 
     if (ADMIN_PATHS.some((path) => pathname.startsWith(path))) {
       if (payload.role !== "admin") {
-        if (!pathname.startsWith("/api/")) {
-          return NextResponse.redirect(new URL("/dashboard", request.url));
-        }
         return NextResponse.json(
           { success: false, error: "Admin access required" },
           { status: 403 }
@@ -68,9 +72,6 @@ export async function middleware(request: NextRequest) {
       request: { headers: requestHeaders },
     });
   } catch {
-    if (!pathname.startsWith("/api/")) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
     return NextResponse.json(
       { success: false, error: "Invalid or expired token" },
       { status: 401 }

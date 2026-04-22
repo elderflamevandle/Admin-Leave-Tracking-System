@@ -19,21 +19,13 @@ export default function NewUserPage() {
   const router = useRouter();
   const [form, setForm] = useState({ fullName: "", email: "", roleId: "", department: "", joinDate: "", sendWelcome: true });
 
-  const { data: roles } = useQuery({
-    queryKey: ["roles"],
+  const { data: rolesData, isLoading: rolesLoading } = useQuery({
+    queryKey: ["admin-roles"],
     queryFn: async () => {
-      const res = await authFetch("/api/users?limit=1"); // just to get roles from first user - we need a proper roles endpoint
-      return { data: [{ id: "", name: "admin", displayName: "Admin" }, { id: "", name: "analyst", displayName: "Analyst" }, { id: "", name: "operations", displayName: "Operations" }] };
-    },
-  });
-
-  // Fetch actual roles from DB
-  const { data: dbRoles } = useQuery({
-    queryKey: ["db-roles"],
-    queryFn: async () => {
-      // We need the roles - fetch a user to extract role IDs or add a roles endpoint
-      // For now use a placeholder approach - admin can fetch roles via settings
-      return null;
+      const res = await authFetch("/api/admin/roles");
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data as { id: string; name: string; displayName: string }[];
     },
   });
 
@@ -70,8 +62,19 @@ export default function NewUserPage() {
             <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
           </div>
           <div className="space-y-2">
-            <Label>Role ID</Label>
-            <Input value={form.roleId} onChange={(e) => setForm({ ...form, roleId: e.target.value })} placeholder="UUID of the role (from database)" />
+            <Label>Role</Label>
+            <Select value={form.roleId} onValueChange={(v) => setForm({ ...form, roleId: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder={rolesLoading ? "Loading roles..." : "Select a role"} />
+              </SelectTrigger>
+              <SelectContent>
+                {rolesData?.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Department (optional)</Label>

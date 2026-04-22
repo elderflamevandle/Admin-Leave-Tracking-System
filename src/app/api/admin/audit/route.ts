@@ -13,13 +13,13 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const { page, limit, skip } = parsePagination(searchParams);
-  const module = searchParams.get("module");
+  const moduleParam = searchParams.get("module");
   const eventKey = searchParams.get("eventKey");
   const userId = searchParams.get("userId");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: Record<string, any> = {};
-  if (module) where.module = module;
+  if (moduleParam) where.module = moduleParam;
   if (eventKey) where.eventKey = { contains: eventKey };
   if (userId) where.userId = userId;
 

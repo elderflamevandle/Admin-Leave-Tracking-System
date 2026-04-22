@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const { authFetch } = useAuth();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Record<string, unknown>>({});
+  const [loadedRef, setLoadedRef] = useState<unknown>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["settings"],
@@ -23,9 +24,10 @@ export default function SettingsPage() {
     },
   });
 
-  useEffect(() => {
-    if (data?.data) setForm(data.data);
-  }, [data]);
+  if (data?.data && data.data !== loadedRef) {
+    setLoadedRef(data.data);
+    setForm(data.data);
+  }
 
   const save = useMutation({
     mutationFn: async (updates: Record<string, unknown>) => {
