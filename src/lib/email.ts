@@ -1,16 +1,28 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "noreply@yourdomain.com";
+
+let _resend: Resend | null | undefined;
+
+function getResend(): Resend | null {
+  if (_resend !== undefined) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  _resend = key ? new Resend(key) : null;
+  return _resend;
+}
 
 export async function sendPasswordResetEmail(
   email: string,
   resetToken: string
 ): Promise<void> {
+  const client = getResend();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set — skipping password reset email for", email);
+    return;
+  }
   const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
 
-  await resend.emails.send({
+  await client.emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: "Reset Your Password",
@@ -29,9 +41,14 @@ export async function sendWelcomeEmail(
   fullName: string,
   temporaryPassword: string
 ): Promise<void> {
+  const client = getResend();
+  if (!client) {
+    console.warn("[email] RESEND_API_KEY not set — skipping welcome email for", email);
+    return;
+  }
   const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL}/login`;
 
-  await resend.emails.send({
+  await client.emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: "Welcome to the Platform",
