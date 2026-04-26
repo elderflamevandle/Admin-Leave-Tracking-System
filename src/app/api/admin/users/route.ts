@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { getAuthFromHeaders, hashPassword } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
 import { sendWelcomeEmail } from "@/lib/email";
-import crypto from "crypto";
+
+const DEFAULT_TEMP_PASSWORD = "Welcome@123";
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) return NextResponse.json({ success: false, error: "Email already in use" }, { status: 400 });
 
-  const tempPassword = crypto.randomBytes(8).toString("hex").slice(0, 12) + "A1!";
+  const tempPassword = DEFAULT_TEMP_PASSWORD;
   const passwordHash = await hashPassword(tempPassword);
 
   const user = await db.user.create({
