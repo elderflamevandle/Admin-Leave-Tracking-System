@@ -3,6 +3,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -18,7 +19,11 @@ export default function DashboardLayout({
     if (!isLoading && !user) {
       router.push("/login");
     }
-  }, [user, isLoading, router]);
+    // `router` is intentionally excluded from deps — including it causes the
+    // effect to re-fire after navigation with a stale `user = null` before
+    // the AuthProvider's setUser() commits, creating an instant redirect loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isLoading]);
 
   if (isLoading) {
     return (
@@ -38,7 +43,9 @@ export default function DashboardLayout({
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar />
         <main className="flex-1 overflow-y-auto bg-slate-50 p-6">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

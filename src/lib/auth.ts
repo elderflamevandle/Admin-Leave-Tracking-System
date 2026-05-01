@@ -1,7 +1,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import { compare, hash } from "bcryptjs";
+import { createHash } from "crypto";
 import { headers } from "next/headers";
-import type { JWTPayload, RoleName } from "@/types";
+import type { JWTPayload, RoleName, PermissionKey } from "@/types";
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 const JWT_REFRESH_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET);
@@ -60,16 +61,9 @@ export async function verifyPassword(password: string, hashedPassword: string): 
   return compare(password, hashedPassword);
 }
 
+// SHA-256: 2^256 output space — replaces the insecure 32-bit DJB2 hash
 export function hashToken(token: string): string {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
-  let h = 0;
-  for (let i = 0; i < data.length; i++) {
-    const char = data[i];
-    h = ((h << 5) - h) + char;
-    h |= 0;
-  }
-  return h.toString(36);
+  return createHash("sha256").update(token).digest("hex");
 }
 
 export function validatePasswordStrength(password: string): string | null {
@@ -90,12 +84,24 @@ export async function getAuthFromHeaders(): Promise<{
   userId: string;
   email: string;
   role: RoleName;
+  permissions: PermissionKey[];
 } | null> {
   const headersList = await headers();
   const userId = headersList.get("x-user-id");
   const email = headersList.get("x-user-email");
   const role = headersList.get("x-user-role") as RoleName | null;
+  const permissionsRaw = headersList.get("x-user-permissions");
 
   if (!userId || !email || !role) return null;
-  return { userId, email, role };
+
+  let permissions: PermissionKey[] = [];
+  if (permissionsRaw) {
+    try {
+      permissions = JSON.parse(permissionsRaw) as PermissionKey[];
+    } catch {
+      permissions = [];
+    }
+  }
+
+  return { userId, email, role, permissions };
 }

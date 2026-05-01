@@ -32,7 +32,21 @@
       "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\\\\n\" -X POST http://localhost:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@firm.com\",\"password\":\"Admin@123!\"}')",
       "Bash(openssl rand *)",
       "Bash(echo \"JWT_SECRET=$\\(openssl rand -hex 48\\)\")",
-      "Bash(echo \"JWT_REFRESH_SECRET=$\\(openssl rand -hex 48\\)\")"
+      "Bash(echo \"JWT_REFRESH_SECRET=$\\(openssl rand -hex 48\\)\")",
+      "Bash(psql -U postgres -c \"\\\\l\")",
+      "PowerShell(netstat -an 2>$null)",
+      "PowerShell(Get-Process -Id 6896 | Select-Object Path; \\(Get-Process -Name \"postgres\" | Select-Object -First 1\\).Path)",
+      "PowerShell($env:PGPASSWORD = \"admin@123\"; & \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U postgres -h localhost -c \"\\\\l\" 2>&1)",
+      "Bash(pnpm dev *)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/leave)",
+      "Bash(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)",
+      "Bash(Stop-Process -Force)",
+      "Bash(Start-Sleep -Seconds 2)",
+      "Bash(Write-Host \"Stopped\")",
+      "Bash(echo \"Server PID: $!\")",
+      "Bash(pnpm prisma:demo)",
+      "Bash(pnpm prisma:seed)"
     ]
   }
 }

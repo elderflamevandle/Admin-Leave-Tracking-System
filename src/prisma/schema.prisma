@@ -37,10 +37,13 @@ model User {
   isActive            Boolean   @default(true) @map("is_active")
   forcePasswordChange Boolean   @default(false) @map("force_password_change")
   lastLoginAt         DateTime? @map("last_login_at")
+  managerId           String?   @map("manager_id") @db.Uuid
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   role                Role                @relation(fields: [roleId], references: [id])
+  manager             User?               @relation("UserManager", fields: [managerId], references: [id])
+  managedUsers        User[]              @relation("UserManager")
   sessions            Session[]
   leaveRequests       LeaveRequest[]      @relation("UserLeaveRequests")
   reviewedLeaves      LeaveRequest[]      @relation("ReviewedLeaveRequests")
@@ -84,6 +87,8 @@ model Session {
 
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId])
+  @@index([refreshTokenHash])
   @@map("sessions")
 }
 
@@ -147,6 +152,8 @@ model LeaveRequest {
   user     User  @relation("UserLeaveRequests", fields: [userId], references: [id])
   reviewer User? @relation("ReviewedLeaveRequests", fields: [reviewedBy], references: [id])
 
+  @@index([userId, status])
+  @@index([startDate, endDate])
   @@map("leave_requests")
 }
 
@@ -169,6 +176,7 @@ model TimeLogEntry {
   amender User? @relation("AmendedTimeLogs", fields: [amendedBy], references: [id])
 
   @@unique([userId, logDate])
+  @@index([userId, logDate])
   @@map("time_log_entries")
 }
 
@@ -186,6 +194,7 @@ model ActivityLogEntry {
   user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, logDate])
+  @@index([userId, logDate])
   @@map("activity_log_entries")
 }
 
@@ -202,6 +211,8 @@ model AuditLog {
 
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId, createdAt])
+  @@index([module, createdAt])
   @@map("audit_logs")
 }
 
@@ -216,6 +227,7 @@ model Notification {
 
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
@@ -229,6 +241,17 @@ model PlatformSetting {
   updater User? @relation(fields: [updatedBy], references: [id])
 
   @@map("platform_settings")
+}
+
+model Holiday {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  date        DateTime @db.Date
+  isRecurring Boolean  @default(true) @map("is_recurring")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([date])
+  @@map("holidays")
 }
 
 // ============================================================

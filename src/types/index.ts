@@ -1,4 +1,4 @@
-export type RoleName = "admin" | "analyst" | "operations";
+export type RoleName = "admin" | "analyst" | "operations" | "manager";
 
 export type PermissionKey =
   // VC Modules
@@ -10,12 +10,12 @@ export type PermissionKey =
   | "finance.view" | "finance.create" | "finance.edit" | "finance.delete"
   | "documents.view" | "documents.create" | "documents.edit" | "documents.delete"
   // People Modules
-  | "leave.view_own" | "leave.apply" | "leave.approve_all"
+  | "leave.view_own" | "leave.apply" | "leave.approve_all" | "leave.approve_team"
   | "timelog.view_own" | "timelog.view_all" | "timelog.edit_all"
   | "activitylog.view_own" | "activitylog.view_all"
   // Admin Modules
   | "users.view" | "users.create" | "users.edit" | "users.deactivate"
-  | "roles.manage" | "audit.view" | "settings.manage";
+  | "roles.manage" | "audit.view" | "settings.manage" | "reports.view" | "holidays.manage";
 
 export interface AuthUser {
   id: string;
@@ -34,6 +34,13 @@ export interface JWTPayload {
   role: RoleName;
   iat: number;
   exp: number;
+}
+
+export interface AuthContext {
+  userId: string;
+  email: string;
+  role: RoleName;
+  permissions: PermissionKey[];
 }
 
 export interface ApiResponse<T = unknown> {

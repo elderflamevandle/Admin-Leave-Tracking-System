@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { createAccessToken, verifyRefreshToken, hashToken } from "@/lib/auth";
+import {
+  createAccessToken,
+  createRefreshToken,
+  verifyRefreshToken,
+  hashToken,
+  getRefreshTokenExpiry,
+} from "@/lib/auth";
+import { getClientInfo } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 import type { RoleName } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+
+const IS_PROD = process.env.NODE_ENV === "production";
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,21 +63,36 @@ export async function POST(request: NextRequest) {
     }
 
     const roleName = user.role.name as RoleName;
-    const accessToken = await createAccessToken({
+    const isLongSession =
+      session.expiresAt.getTime() - Date.now() > 7 * 24 * 60 * 60 * 1000;
+
+    const newAccessToken = await createAccessToken({
       sub: user.id,
       email: user.email,
       role: roleName,
     });
 
-    await db.session.update({
-      where: { id: session.id },
-      data: { tokenHash: hashToken(accessToken) },
-    });
+    // Rotate refresh token on every use — invalidates stolen tokens
+    const newRefreshToken = await createRefreshToken({ sub: user.id }, isLongSession);
+    const { ipAddress, userAgent } = getClientInfo(request);
 
-    return NextResponse.json({
+    await db.$transaction([
+      db.session.delete({ where: { id: session.id } }),
+      db.session.create({
+        data: {
+          userId: user.id,
+          tokenHash: hashToken(newAccessToken),
+          refreshTokenHash: hashToken(newRefreshToken),
+          expiresAt: getRefreshTokenExpiry(isLongSession),
+          ipAddress,
+          userAgent,
+        },
+      }),
+    ]);
+
+    const response = NextResponse.json({
       success: true,
       data: {
-        accessToken,
         user: {
           id: user.id,
           fullName: user.fullName,
@@ -80,8 +105,26 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    response.cookies.set("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: "strict",
+      path: "/",
+      maxAge: 15 * 60,
+    });
+
+    response.cookies.set("refreshToken", newRefreshToken, {
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: "strict",
+      path: "/",
+      maxAge: isLongSession ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60,
+    });
+
+    return response;
   } catch (error) {
-    console.error("Token refresh error:", error);
+    logger.error("Token refresh error", { error: String(error) });
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

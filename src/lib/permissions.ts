@@ -1,6 +1,8 @@
 import type { PermissionKey, RoleName } from "@/types";
 
-const ROLE_PERMISSIONS: Record<RoleName, PermissionKey[]> = {
+// Single source of truth for role permissions.
+// seed.ts imports this — the DB permissions column is kept in sync automatically.
+export const ROLE_PERMISSIONS: Record<RoleName, PermissionKey[]> = {
   admin: [
     "pipeline.view", "pipeline.create", "pipeline.edit", "pipeline.delete",
     "outreach.view", "outreach.create", "outreach.edit", "outreach.delete",
@@ -12,7 +14,14 @@ const ROLE_PERMISSIONS: Record<RoleName, PermissionKey[]> = {
     "timelog.view_own", "timelog.view_all", "timelog.edit_all",
     "activitylog.view_own", "activitylog.view_all",
     "users.view", "users.create", "users.edit", "users.deactivate",
-    "roles.manage", "audit.view", "settings.manage",
+    "roles.manage", "audit.view", "settings.manage", "reports.view", "holidays.manage",
+  ],
+  manager: [
+    "leave.view_own", "leave.apply", "leave.approve_team",
+    "timelog.view_own",
+    "activitylog.view_own",
+    "users.view",
+    "reports.view",
   ],
   analyst: [
     "pipeline.view", "pipeline.create", "pipeline.edit", "pipeline.delete",
@@ -33,10 +42,16 @@ const ROLE_PERMISSIONS: Record<RoleName, PermissionKey[]> = {
   ],
 };
 
-export function hasPermission(role: RoleName, permission: PermissionKey): boolean {
-  const permissions = ROLE_PERMISSIONS[role];
-  if (!permissions) return false;
-  return permissions.includes(permission);
+// Check against a live permissions array (sourced from JWT/session headers).
+// Falls back to the hardcoded map when the array is unavailable.
+export function hasPermission(
+  roleOrPermissions: RoleName | PermissionKey[],
+  permission: PermissionKey
+): boolean {
+  if (Array.isArray(roleOrPermissions)) {
+    return roleOrPermissions.includes(permission);
+  }
+  return (ROLE_PERMISSIONS[roleOrPermissions] ?? []).includes(permission);
 }
 
 export function getPermissionsForRole(role: RoleName): PermissionKey[] {
@@ -50,5 +65,3 @@ export function getAllPermissionKeys(): PermissionKey[] {
 export function isAdmin(role: RoleName): boolean {
   return role === "admin";
 }
-
-export { ROLE_PERMISSIONS };

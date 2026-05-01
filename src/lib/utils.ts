@@ -6,10 +6,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Calculate working days between two dates (excludes weekends).
- * Does not exclude public holidays (Phase 2 feature).
+ * Calculate working days between two dates, excluding weekends and optional holidays.
  */
-export function calculateWorkingDays(startDate: Date, endDate: Date): number {
+export function calculateWorkingDays(startDate: Date, endDate: Date, holidayDates: Date[] = []): number {
+  const holidaySet = new Set(
+    holidayDates.map((d) => new Date(d).toISOString().split("T")[0])
+  );
   let count = 0;
   const current = new Date(startDate);
   current.setHours(0, 0, 0, 0);
@@ -18,7 +20,8 @@ export function calculateWorkingDays(startDate: Date, endDate: Date): number {
 
   while (current <= end) {
     const day = current.getDay();
-    if (day !== 0 && day !== 6) {
+    const iso = current.toISOString().split("T")[0];
+    if (day !== 0 && day !== 6 && !holidaySet.has(iso)) {
       count++;
     }
     current.setDate(current.getDate() + 1);

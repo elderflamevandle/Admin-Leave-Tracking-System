@@ -8,12 +8,14 @@ import {
   getRefreshTokenExpiry,
 } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 import type { RoleName } from "@/types";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 const LOCKOUT_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+const IS_PROD = process.env.NODE_ENV === "production";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
       await logAudit({
         userId: user.id,
         eventKey: "auth.login_failed",
-        details: `Failed login attempt for ${email}`,
+        details: "Failed login attempt",
         ipAddress,
         userAgent,
         module: "Auth",
@@ -112,10 +114,11 @@ export async function POST(request: NextRequest) {
       module: "Auth",
     });
 
+    logger.info("User logged in", { userId: user.id, role: roleName });
+
     const response = NextResponse.json({
       success: true,
       data: {
-        accessToken,
         user: {
           id: user.id,
           fullName: user.fullName,
@@ -129,17 +132,26 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Access token as HttpOnly cookie — not readable by JS, blocks XSS token theft
+    response.cookies.set("accessToken", accessToken, {
+      httpOnly: true,
+      secure: IS_PROD,
+      sameSite: "strict",
+      path: "/",
+      maxAge: 15 * 60,
+    });
+
     response.cookies.set("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: IS_PROD,
+      sameSite: "strict",
       path: "/",
       maxAge: rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60,
     });
 
     return response;
   } catch (error) {
-    console.error("Login error:", error);
+    logger.error("Login error", { error: String(error) });
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

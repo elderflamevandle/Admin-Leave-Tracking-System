@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashToken } from "@/lib/auth";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { logger } from "@/lib/logger";
 import crypto from "crypto";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,12 +36,12 @@ export async function POST(request: NextRequest) {
     });
 
     sendPasswordResetEmail(email, resetToken).catch((err) =>
-      console.error("Failed to send reset email:", err)
+      logger.error("Failed to send password reset email", { error: String(err) })
     );
 
     return successResponse;
   } catch (error) {
-    console.error("Forgot password error:", error);
+    logger.error("Forgot password error", { error: String(error) });
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

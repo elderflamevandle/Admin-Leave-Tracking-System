@@ -3,8 +3,11 @@ import { db } from "@/lib/db";
 import { getAuthFromHeaders } from "@/lib/auth";
 import { generateCSV } from "@/lib/csv";
 import { formatDateISO } from "@/lib/utils";
+import { rateLimits } from "@/lib/rate-limit";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+
+const MAX_EXPORT_ROWS = 10_000;
 
 type CsvRow = Record<string, string | number>;
 
@@ -15,6 +18,10 @@ export async function GET(
   const auth = await getAuthFromHeaders();
   if (!auth) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
+  if (!rateLimits.export(auth.userId)) {
+    return NextResponse.json({ success: false, error: "Rate limit exceeded" }, { status: 429 });
+  }
+
   const { type } = await params;
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
@@ -24,17 +31,25 @@ export async function GET(
   if (type === "leave") {
     const where = {
       ...(isAdmin ? {} : { userId: auth.userId }),
-      ...(from || to ? { startDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {}),
+      ...(from || to
+        ? {
+            startDate: {
+              ...(from && { gte: new Date(from) }),
+              ...(to && { lte: new Date(to) }),
+            },
+          }
+        : {}),
     };
 
     const data = await db.leaveRequest.findMany({
       where,
       include: { user: { select: { fullName: true, email: true } } },
       orderBy: { startDate: "desc" },
+      take: MAX_EXPORT_ROWS,
     });
 
     const headers = ["Employee", "Email", "Type", "Start", "End", "Days", "Status", "Reason"];
-    const rows: CsvRow[] = data.map((r: typeof data[0]) => ({
+    const rows: CsvRow[] = data.map((r: (typeof data)[0]) => ({
       Employee: r.user.fullName,
       Email: r.user.email,
       Type: r.leaveType,
@@ -45,28 +60,42 @@ export async function GET(
       Reason: r.reason ?? "",
     }));
 
+    const responseHeaders: Record<string, string> = {
+      "Content-Type": "text/csv",
+      "Content-Disposition": `attachment; filename="leave-export.csv"`,
+    };
+    if (data.length === MAX_EXPORT_ROWS) {
+      responseHeaders["X-Export-Truncated"] = "true";
+      responseHeaders["X-Export-Max"] = String(MAX_EXPORT_ROWS);
+    }
+
     return new NextResponse(generateCSV(headers, rows as Record<string, unknown>[]), {
-      headers: {
-        "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="leave-export.csv"`,
-      },
+      headers: responseHeaders,
     });
   }
 
   if (type === "timelog") {
     const where = {
       ...(isAdmin ? {} : { userId: auth.userId }),
-      ...(from || to ? { logDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {}),
+      ...(from || to
+        ? {
+            logDate: {
+              ...(from && { gte: new Date(from) }),
+              ...(to && { lte: new Date(to) }),
+            },
+          }
+        : {}),
     };
 
     const data = await db.timeLogEntry.findMany({
       where,
       include: { user: { select: { fullName: true } } },
       orderBy: { logDate: "desc" },
+      take: MAX_EXPORT_ROWS,
     });
 
     const headers = ["Employee", "Date", "Login", "Logout", "Break (min)", "Hours Worked", "Notes"];
-    const rows: CsvRow[] = data.map((r: typeof data[0]) => ({
+    const rows: CsvRow[] = data.map((r: (typeof data)[0]) => ({
       Employee: r.user.fullName,
       Date: formatDateISO(new Date(r.logDate)),
       Login: r.loginTime,
@@ -76,11 +105,17 @@ export async function GET(
       Notes: r.notes ?? "",
     }));
 
+    const responseHeaders: Record<string, string> = {
+      "Content-Type": "text/csv",
+      "Content-Disposition": `attachment; filename="timelog-export.csv"`,
+    };
+    if (data.length === MAX_EXPORT_ROWS) {
+      responseHeaders["X-Export-Truncated"] = "true";
+      responseHeaders["X-Export-Max"] = String(MAX_EXPORT_ROWS);
+    }
+
     return new NextResponse(generateCSV(headers, rows as Record<string, unknown>[]), {
-      headers: {
-        "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="timelog-export.csv"`,
-      },
+      headers: responseHeaders,
     });
   }
 

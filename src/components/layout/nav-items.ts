@@ -18,8 +18,15 @@ export interface NavGroup {
 const PEOPLE_ADMIN_ITEMS: NavItem[] = [
   { label: "Employee Directory", href: "/directory", icon: "Users" },
   { label: "Leave Management", href: "/leave/manage", icon: "CalendarOff", permission: "leave.approve_all" },
+  { label: "Leave Calendar", href: "/leave/calendar", icon: "CalendarDays" },
   { label: "Time & Attendance", href: "/timelog/all", icon: "Clock", permission: "timelog.view_all" },
   { label: "Activity Logs", href: "/activity/all", icon: "FileText", permission: "activitylog.view_all" },
+];
+
+const MANAGER_ITEMS: NavItem[] = [
+  { label: "Employee Directory", href: "/directory", icon: "Users" },
+  { label: "Team Leave", href: "/leave/manage", icon: "CalendarOff" },
+  { label: "Leave Calendar", href: "/leave/calendar", icon: "CalendarDays" },
 ];
 
 const MY_WORK_ITEMS: NavItem[] = [
@@ -47,6 +54,8 @@ const PROJECT_ITEMS: NavItem[] = [
 const ADMIN_ITEMS: NavItem[] = [
   { label: "User Management", href: "/admin/users", icon: "UserCog", adminOnly: true },
   { label: "Roles & Permissions", href: "/admin/roles", icon: "ShieldCheck", adminOnly: true },
+  { label: "Holiday Calendar", href: "/admin/holidays", icon: "Palmtree", adminOnly: true },
+  { label: "Reports", href: "/admin/reports", icon: "BarChart2", adminOnly: true },
   { label: "Audit Log", href: "/admin/audit", icon: "ScrollText", adminOnly: true },
   { label: "Platform Settings", href: "/admin/settings", icon: "Settings", adminOnly: true },
 ];
@@ -60,6 +69,12 @@ export function getNavGroups(role: RoleName): NavGroup[] {
         { label: "Operations", items: OPS_ITEMS },
         { label: "Projects", items: PROJECT_ITEMS },
         { label: "Admin", items: ADMIN_ITEMS },
+      ];
+    case "manager":
+      return [
+        { label: "Team", items: MANAGER_ITEMS },
+        { label: "My Work", items: MY_WORK_ITEMS },
+        { label: "Projects", items: PROJECT_ITEMS },
       ];
     case "analyst":
       return [

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, hashToken, validatePasswordStrength } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,34 +43,37 @@ export async function POST(request: NextRequest) {
     }
 
     const passwordHash = await hashPassword(password);
-    await db.user.update({
-      where: { id: resetToken.userId },
-      data: { passwordHash, forcePasswordChange: false },
-    });
 
-    await db.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { usedAt: new Date() },
-    });
-
-    await db.session.deleteMany({ where: { userId: resetToken.userId } });
+    await db.$transaction([
+      db.user.update({
+        where: { id: resetToken.userId },
+        data: { passwordHash, forcePasswordChange: false },
+      }),
+      db.passwordResetToken.update({
+        where: { id: resetToken.id },
+        data: { usedAt: new Date() },
+      }),
+      db.session.deleteMany({ where: { userId: resetToken.userId } }),
+    ]);
 
     const { ipAddress, userAgent } = getClientInfo(request);
     await logAudit({
       userId: resetToken.userId,
       eventKey: "auth.password_reset",
-      details: `Password reset completed for ${resetToken.user.email}`,
+      details: "Password reset completed",
       ipAddress,
       userAgent,
       module: "Auth",
     });
+
+    logger.info("Password reset completed", { userId: resetToken.userId });
 
     return NextResponse.json({
       success: true,
       data: { message: "Password reset successful. Please log in." },
     });
   } catch (error) {
-    console.error("Reset password error:", error);
+    logger.error("Reset password error", { error: String(error) });
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 }

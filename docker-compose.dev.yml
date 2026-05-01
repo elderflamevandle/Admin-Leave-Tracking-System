@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Development stack — PostgreSQL only
+#
+# Run the DB in Docker while the app runs locally with hot-reload:
+#
+#   docker compose -f docker-compose.dev.yml up -d   # start DB
+#   pnpm dev                                         # start app locally
+#
+# Stop:
+#   docker compose -f docker-compose.dev.yml down
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       leave_tracking
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Admin@123}
+    volumes:
+      - pg_data_dev:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d leave_tracking"]
+      interval: 5s
+      timeout:  5s
+      retries:  10
+
+  # Optional: pgAdmin web UI for inspecting the database
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    profiles: ["tools"]          # only starts when: docker compose --profile tools up
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+volumes:
+  pg_data_dev:
+    driver: local

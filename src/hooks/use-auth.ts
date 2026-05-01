@@ -4,35 +4,33 @@ import { useAuthContext } from "@/providers/auth-provider";
 import { useCallback } from "react";
 
 export function useAuth() {
-  const { user, accessToken, isLoading, login, logout, refreshAuth } =
-    useAuthContext();
+  const { user, isLoading, login, logout, refreshAuth } = useAuthContext();
 
+  // Access token is an HttpOnly cookie — the browser sends it automatically.
+  // authFetch is a thin wrapper that retries once after a silent token refresh
+  // on a 401, matching the old behaviour without exposing the token to JS.
   const authFetch = useCallback(
     async (url: string, options: RequestInit = {}) => {
-      let token = accessToken;
-
-      const makeRequest = (t: string | null) =>
+      const makeRequest = () =>
         fetch(url, {
           ...options,
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
             ...options.headers,
-            ...(t ? { Authorization: `Bearer ${t}` } : {}),
           },
         });
 
-      let res = await makeRequest(token);
+      let res = await makeRequest();
 
       if (res.status === 401) {
-        token = await refreshAuth();
-        if (token) {
-          res = await makeRequest(token);
-        }
+        const ok = await refreshAuth();
+        if (ok) res = await makeRequest();
       }
 
       return res;
     },
-    [accessToken, refreshAuth]
+    [refreshAuth]
   );
 
   return { user, isLoading, login, logout, authFetch };

@@ -45,9 +45,18 @@ export default function LeavePage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const { data: meData } = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => {
+      const res = await authFetch("/api/users/me");
+      return res.json();
+    },
+  });
+
   const leaveRequests = data?.data ?? [];
   const pending = leaveRequests.filter((r: Record<string, unknown>) => r.status === "pending").length;
   const approved = leaveRequests.filter((r: Record<string, unknown>) => r.status === "approved").length;
+  const leaveBalance = meData?.data?.leaveBalance ?? 0;
 
   const columns = [
     { key: "leaveType", header: "Type", render: (r: Record<string, unknown>) => <Badge variant="outline">{String(r.leaveType)}</Badge> },
@@ -68,7 +77,7 @@ export default function LeavePage() {
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <StatCard label="Leave Balance" value={`${user ? 0 : "—"} days`} icon={<CalendarOff className="h-5 w-5" />} />
+        <StatCard label="Leave Balance" value={`${leaveBalance} days`} icon={<CalendarOff className="h-5 w-5" />} />
         <StatCard label="Pending Requests" value={pending} />
         <StatCard label="Approved This Year" value={approved} />
       </div>

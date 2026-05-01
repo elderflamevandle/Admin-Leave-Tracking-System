@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { logger } from "./logger";
 
 const FROM_EMAIL = process.env.EMAIL_FROM ?? "noreply@yourdomain.com";
 
@@ -11,13 +12,21 @@ function getResend(): Resend | null {
   return _resend;
 }
 
+function redactEmail(email: string): string {
+  const [user, domain] = email.split("@");
+  if (!user || !domain) return "***";
+  return `${user[0]}***@${domain}`;
+}
+
 export async function sendPasswordResetEmail(
   email: string,
   resetToken: string
 ): Promise<void> {
   const client = getResend();
   if (!client) {
-    console.warn("[email] RESEND_API_KEY not set — skipping password reset email for", email);
+    logger.warn("Email provider not configured — skipping password reset email", {
+      recipient: redactEmail(email),
+    });
     return;
   }
   const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
@@ -36,6 +45,37 @@ export async function sendPasswordResetEmail(
   });
 }
 
+export async function sendLeaveStatusEmail(
+  email: string,
+  fullName: string,
+  status: "approved" | "rejected",
+  leaveType: string,
+  startDate: string,
+  endDate: string,
+  note?: string
+): Promise<void> {
+  const client = getResend();
+  if (!client) {
+    logger.warn("Email provider not configured — skipping leave status email", {
+      recipient: redactEmail(email),
+    });
+    return;
+  }
+  const subject = status === "approved" ? "Your Leave Request Was Approved" : "Your Leave Request Was Rejected";
+  const statusLine =
+    status === "approved"
+      ? `<p style="color:#16a34a">✓ Your <strong>${leaveType}</strong> leave from <strong>${startDate}</strong> to <strong>${endDate}</strong> has been <strong>approved</strong>.</p>`
+      : `<p style="color:#dc2626">✗ Your <strong>${leaveType}</strong> leave from <strong>${startDate}</strong> to <strong>${endDate}</strong> has been <strong>rejected</strong>.</p>`;
+  const noteHtml = note ? `<p><strong>Note from reviewer:</strong> ${note}</p>` : "";
+
+  await client.emails.send({
+    from: FROM_EMAIL,
+    to: email,
+    subject,
+    html: `<h2>Leave Request Update</h2><p>Hi ${fullName},</p>${statusLine}${noteHtml}<p>Log in to view your leave history.</p>`,
+  });
+}
+
 export async function sendWelcomeEmail(
   email: string,
   fullName: string,
@@ -43,7 +83,9 @@ export async function sendWelcomeEmail(
 ): Promise<void> {
   const client = getResend();
   if (!client) {
-    console.warn("[email] RESEND_API_KEY not set — skipping welcome email for", email);
+    logger.warn("Email provider not configured — skipping welcome email", {
+      recipient: redactEmail(email),
+    });
     return;
   }
   const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL}/login`;

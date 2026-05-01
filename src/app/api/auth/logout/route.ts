@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAccessToken } from "@/lib/auth";
 import { logAudit, getClientInfo } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
+    // Read token from cookie (new flow) or Authorization header (legacy clients)
+    const tokenFromCookie = request.cookies.get("accessToken")?.value;
+    const tokenFromHeader = request.headers.get("authorization")?.replace("Bearer ", "");
+    const token = tokenFromCookie ?? tokenFromHeader;
 
     if (token) {
       const payload = await verifyAccessToken(token);
@@ -24,15 +27,19 @@ export async function POST(request: NextRequest) {
           userAgent,
           module: "Auth",
         });
+
+        logger.info("User logged out", { userId: payload.sub });
       }
     }
 
     const response = NextResponse.json({ success: true });
+    response.cookies.delete("accessToken");
     response.cookies.delete("refreshToken");
     return response;
   } catch (error) {
-    console.error("Logout error:", error);
+    logger.error("Logout error", { error: String(error) });
     const response = NextResponse.json({ success: true });
+    response.cookies.delete("accessToken");
     response.cookies.delete("refreshToken");
     return response;
   }

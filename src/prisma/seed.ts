@@ -1,95 +1,55 @@
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcryptjs";
+import { ROLE_PERMISSIONS } from "../lib/permissions";
 
 const prisma = new PrismaClient();
-
-const ALL_PERMISSIONS = [
-  "pipeline.view", "pipeline.create", "pipeline.edit", "pipeline.delete",
-  "outreach.view", "outreach.create", "outreach.edit", "outreach.delete",
-  "research.view", "research.create", "research.edit", "research.delete",
-  "legal.view", "legal.create", "legal.edit", "legal.delete",
-  "finance.view", "finance.create", "finance.edit", "finance.delete",
-  "documents.view", "documents.create", "documents.edit", "documents.delete",
-  "leave.view_own", "leave.apply", "leave.approve_all",
-  "timelog.view_own", "timelog.view_all", "timelog.edit_all",
-  "activitylog.view_own", "activitylog.view_all",
-  "users.view", "users.create", "users.edit", "users.deactivate",
-  "roles.manage", "audit.view", "settings.manage",
-];
-
-const ANALYST_PERMISSIONS = [
-  "pipeline.view", "pipeline.create", "pipeline.edit", "pipeline.delete",
-  "outreach.view", "outreach.create", "outreach.edit", "outreach.delete",
-  "research.view", "research.create", "research.edit", "research.delete",
-  "leave.view_own", "leave.apply",
-  "timelog.view_own",
-  "activitylog.view_own",
-  "documents.view",
-];
-
-const OPERATIONS_PERMISSIONS = [
-  "legal.view", "legal.create", "legal.edit", "legal.delete",
-  "finance.view", "finance.create", "finance.edit", "finance.delete",
-  "documents.view", "documents.create", "documents.edit", "documents.delete",
-  "leave.view_own", "leave.apply",
-  "timelog.view_own",
-  "activitylog.view_own",
-];
 
 async function main() {
   console.log("Seeding database...");
 
-  // Create roles
   const adminRole = await prisma.role.upsert({
     where: { name: "admin" },
-    update: { permissions: ALL_PERMISSIONS },
-    create: {
-      name: "admin",
-      displayName: "Admin",
-      permissions: ALL_PERMISSIONS,
-    },
+    update: { permissions: ROLE_PERMISSIONS.admin },
+    create: { name: "admin", displayName: "Admin", permissions: ROLE_PERMISSIONS.admin },
   });
 
   const analystRole = await prisma.role.upsert({
     where: { name: "analyst" },
-    update: { permissions: ANALYST_PERMISSIONS },
-    create: {
-      name: "analyst",
-      displayName: "Analyst",
-      permissions: ANALYST_PERMISSIONS,
-    },
+    update: { permissions: ROLE_PERMISSIONS.analyst },
+    create: { name: "analyst", displayName: "Analyst", permissions: ROLE_PERMISSIONS.analyst },
   });
 
   const operationsRole = await prisma.role.upsert({
     where: { name: "operations" },
-    update: { permissions: OPERATIONS_PERMISSIONS },
-    create: {
-      name: "operations",
-      displayName: "Operations",
-      permissions: OPERATIONS_PERMISSIONS,
-    },
+    update: { permissions: ROLE_PERMISSIONS.operations },
+    create: { name: "operations", displayName: "Operations", permissions: ROLE_PERMISSIONS.operations },
   });
 
-  console.log("Roles created:", adminRole.name, analystRole.name, operationsRole.name);
+  const managerRole = await prisma.role.upsert({
+    where: { name: "manager" },
+    update: { permissions: ROLE_PERMISSIONS.manager },
+    create: { name: "manager", displayName: "Manager", permissions: ROLE_PERMISSIONS.manager },
+  });
 
-  // Create default admin user
-  const passwordHash = await hash("Admin@123!", 12);
+  console.log("Roles created:", adminRole.name, analystRole.name, operationsRole.name, managerRole.name);
+
+  const passwordHash = await hash("Admin@123", 12);
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@firm.com" },
-    update: {},
+    update: { passwordHash, forcePasswordChange: false },
     create: {
       fullName: "System Admin",
       email: "admin@firm.com",
       passwordHash,
       roleId: adminRole.id,
       department: "Administration",
-      forcePasswordChange: true,
+      forcePasswordChange: false,
     },
   });
 
   console.log("Admin user created:", adminUser.email);
+  console.log("⚠  Change the admin password immediately after first login.");
 
-  // Platform settings
   const settings = [
     { key: "working_hours_per_day", value: 8 },
     { key: "working_days", value: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] },
@@ -113,17 +73,13 @@ async function main() {
       where: { key: setting.key },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       update: { value: setting.value as any },
-      create: {
-        key: setting.key,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        value: setting.value as any,
-      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      create: { key: setting.key, value: setting.value as any },
     });
   }
 
   console.log("Platform settings created:", settings.length, "entries");
   console.log("\nSeed complete!");
-  console.log("Default admin login: admin@firm.com / Admin@123!");
 }
 
 main()

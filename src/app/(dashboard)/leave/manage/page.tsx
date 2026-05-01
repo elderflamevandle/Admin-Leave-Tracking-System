@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useRole } from "@/hooks/use-role";
 import { DataTable } from "@/components/shared/data-table";
 import { CSVExportButton } from "@/components/shared/csv-export-button";
 import { ConfirmModal } from "@/components/shared/confirm-modal";
@@ -16,23 +17,28 @@ import { toast } from "sonner";
 
 export default function LeaveManagePage() {
   const { authFetch } = useAuth();
+  const { roleName } = useRole();
   const queryClient = useQueryClient();
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [approveId, setApproveId] = useState<string | null>(null);
 
+  const isManager = roleName === "manager";
+  const pendingParam = isManager ? "/api/leave?team=true&status=pending&limit=50" : "/api/leave?all=true&status=pending&limit=50";
+  const allParam = isManager ? "/api/leave?team=true&limit=50" : "/api/leave?all=true&limit=50";
+
   const { data: pendingData, isLoading: pendingLoading } = useQuery({
-    queryKey: ["leave-pending"],
+    queryKey: ["leave-pending", roleName],
     queryFn: async () => {
-      const res = await authFetch("/api/leave?all=true&status=pending&limit=50");
+      const res = await authFetch(pendingParam);
       return res.json();
     },
   });
 
   const { data: allData, isLoading: allLoading } = useQuery({
-    queryKey: ["leave-all"],
+    queryKey: ["leave-all", roleName],
     queryFn: async () => {
-      const res = await authFetch("/api/leave?all=true&limit=50");
+      const res = await authFetch(allParam);
       return res.json();
     },
   });
@@ -86,7 +92,7 @@ export default function LeaveManagePage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Leave Management</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{isManager ? "Team Leave" : "Leave Management"}</h1>
         <CSVExportButton type="leave" />
       </div>
 

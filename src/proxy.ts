@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { ROLE_PERMISSIONS } from "@/lib/permissions";
+import type { RoleName } from "@/types";
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
@@ -12,17 +14,17 @@ const PUBLIC_PATHS = [
   "/api/auth/refresh",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/health",
 ];
 
-const ADMIN_PATHS = ["/admin", "/api/admin"];
+const ADMIN_API_PREFIX = "/api/admin";
 
+// In Next.js 16, Middleware was renamed to Proxy.
+// Named export "proxy" (or default export) in proxy.ts is the convention.
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
-    return NextResponse.next();
-  }
-
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return NextResponse.next();
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -33,6 +35,7 @@ export async function proxy(request: NextRequest) {
 
   const isApi = pathname.startsWith("/api/");
 
+  // Non-API pages: gate on the presence of the refresh cookie only (fast check)
   if (!isApi) {
     const refreshToken = request.cookies.get("refreshToken")?.value;
     if (!refreshToken) {
@@ -41,8 +44,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const authHeader = request.headers.get("authorization");
-  const token = authHeader?.replace("Bearer ", "");
+  // API routes: require a valid access token from HttpOnly cookie or Authorization header
+  const tokenFromCookie = request.cookies.get("accessToken")?.value;
+  const tokenFromHeader = request.headers.get("authorization")?.replace("Bearer ", "");
+  const token = tokenFromCookie ?? tokenFromHeader;
 
   if (!token) {
     return NextResponse.json(
@@ -53,24 +58,24 @@ export async function proxy(request: NextRequest) {
 
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
+    const role = payload.role as RoleName;
 
-    if (ADMIN_PATHS.some((path) => pathname.startsWith(path))) {
-      if (payload.role !== "admin") {
-        return NextResponse.json(
-          { success: false, error: "Admin access required" },
-          { status: 403 }
-        );
-      }
+    if (pathname.startsWith(ADMIN_API_PREFIX) && role !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Admin access required" },
+        { status: 403 }
+      );
     }
 
+    // Forward verified identity + role-based permissions to route handlers
+    const permissions = ROLE_PERMISSIONS[role] ?? [];
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-user-id", payload.sub as string);
     requestHeaders.set("x-user-email", payload.email as string);
-    requestHeaders.set("x-user-role", payload.role as string);
+    requestHeaders.set("x-user-role", role);
+    requestHeaders.set("x-user-permissions", JSON.stringify(permissions));
 
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    });
+    return NextResponse.next({ request: { headers: requestHeaders } });
   } catch {
     return NextResponse.json(
       { success: false, error: "Invalid or expired token" },

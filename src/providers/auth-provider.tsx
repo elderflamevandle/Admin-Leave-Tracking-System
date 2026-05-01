@@ -12,64 +12,79 @@ import type { AuthUser } from "@/types";
 
 interface AuthContextType {
   user: AuthUser | null;
-  accessToken: string | null;
   isLoading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
-  refreshAuth: () => Promise<string | null>;
+  refreshAuth: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const refreshAuth = useCallback(async (): Promise<string | null> => {
+  // Access token lives in an HttpOnly cookie — not accessible to JS.
+  // We only track user metadata in state.
+  // `localStorage.session` is a non-sensitive hint that a session cookie may
+  // exist. It lets us skip the /api/auth/refresh round-trip (and the resulting
+  // 401 console noise) for users who are not logged in.
+  const refreshAuth = useCallback(async (): Promise<boolean> => {
     try {
-      const res = await fetch("/api/auth/refresh", { method: "POST" });
-      if (!res.ok) return null;
+      const res = await fetch("/api/auth/refresh", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        localStorage.removeItem("session");
+        return false;
+      }
       const data = await res.json();
       if (data.success) {
+        localStorage.setItem("session", "1");
         setUser(data.data.user);
-        setAccessToken(data.data.accessToken);
-        return data.data.accessToken;
+        return true;
       }
-      return null;
+      localStorage.removeItem("session");
+      return false;
     } catch {
-      return null;
+      return false;
     }
   }, []);
 
   useEffect(() => {
-    refreshAuth().finally(() => setIsLoading(false));
+    // Only attempt refresh when there's a hint a session cookie may exist.
+    if (localStorage.getItem("session")) {
+      refreshAuth().finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
+    }
   }, [refreshAuth]);
 
+  // Silent re-auth every 13 minutes to keep the 15-minute access token alive
   useEffect(() => {
-    if (!accessToken) return;
+    if (!user) return;
     const interval = setInterval(() => {
       refreshAuth();
     }, 13 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [accessToken, refreshAuth]);
+  }, [user, refreshAuth]);
 
   const login = useCallback(
     async (email: string, password: string, rememberMe = false) => {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password, rememberMe }),
       });
 
       const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error);
-      }
+      if (!data.success) throw new Error(data.error);
 
+      localStorage.setItem("session", "1");
       setUser(data.data.user);
-      setAccessToken(data.data.accessToken);
 
       if (data.data.user.forcePasswordChange) {
         router.push("/change-password");
@@ -84,21 +99,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
-        headers: accessToken
-          ? { Authorization: `Bearer ${accessToken}` }
-          : {},
+        credentials: "include",
       });
     } finally {
+      localStorage.removeItem("session");
       setUser(null);
-      setAccessToken(null);
       router.push("/login");
     }
-  }, [accessToken, router]);
+  }, [router]);
 
   return (
-    <AuthContext.Provider
-      value={{ user, accessToken, isLoading, login, logout, refreshAuth }}
-    >
+    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshAuth }}>
       {children}
     </AuthContext.Provider>
   );
@@ -106,8 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuthContext() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuthContext must be used within AuthProvider");
-  }
+  if (!context) throw new Error("useAuthContext must be used within AuthProvider");
   return context;
 }
