@@ -9,6 +9,10 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.claude
+.cursor
+.e2e
+.node_modules
 
 # testing
 /coverage
