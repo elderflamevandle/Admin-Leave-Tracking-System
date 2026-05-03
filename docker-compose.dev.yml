@@ -1,47 +1,58 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Development stack — PostgreSQL only
-#
-# Run the DB in Docker while the app runs locally with hot-reload:
-#
-#   docker compose -f docker-compose.dev.yml up -d   # start DB
-#   pnpm dev                                         # start app locally
-#
-# Stop:
-#   docker compose -f docker-compose.dev.yml down
-# ─────────────────────────────────────────────────────────────────────────────
-
 services:
-
-  db:
-    image: postgres:17-alpine
+  postgres:
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB:       leave_tracking
-      POSTGRES_USER:     postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Admin@123}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Admin@123
+      POSTGRES_DB: leave_tracking
+    ports:
+      - "5432:5432"
     volumes:
-      - pg_data_dev:/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-5432}:5432"
+      - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d leave_tracking"]
-      interval: 5s
-      timeout:  5s
-      retries:  10
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Optional: pgAdmin web UI for inspecting the database
-  pgadmin:
-    image: dpage/pgadmin4:latest
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
     restart: unless-stopped
-    profiles: ["tools"]          # only starts when: docker compose --profile tools up
-    environment:
-      PGADMIN_DEFAULT_EMAIL:    admin@local.dev
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
     depends_on:
-      - db
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:Admin@123@postgres:5432/leave_tracking
+      DIRECT_URL: postgresql://postgres:Admin@123@postgres:5432/leave_tracking
+      JWT_SECRET: c8f2a1e9d4b7f3c6a9e2d5b8f1c4a7e0d3b6f9c2a5e8d1b4f7c0a3e6d9b2f5c8
+      JWT_REFRESH_SECRET: a3f6c9b2e5d8a1f4c7b0e3d6a9f2c5b8e1d4a7f0c3b6e9d2a5f8c1b4e7d0a3f6
+      FRONTEND_URL: http://localhost:5173
+      NODE_ENV: development
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/src:/app/src   # hot reload
+      - ./backend/prisma:/app/prisma
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:5000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html   # Vite needs index.html at root
+      - ./frontend/public:/app/public
 
 volumes:
-  pg_data_dev:
-    driver: local
+  postgres_dev_data:

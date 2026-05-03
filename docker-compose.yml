@@ -1,76 +1,52 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Production stack — starts PostgreSQL + the Next.js app
-#
-# Quick start:
-#   cp .env.docker .env.docker.local   # fill in secrets
-#   docker compose --env-file .env.docker.local up -d
-#
-# First boot — seed roles + admin account:
-#   docker compose exec app sh -c 'NODE_PATH=/app/prisma-cli/node_modules /app/prisma-cli/node_modules/.bin/tsx src/prisma/seed.ts'
-#
-# Load demo data:
-#   docker compose exec app sh -c 'NODE_PATH=/app/prisma-cli/node_modules /app/prisma-cli/node_modules/.bin/tsx src/prisma/demo.ts'
-# ─────────────────────────────────────────────────────────────────────────────
-
 services:
-
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
-  db:
-    image: postgres:17-alpine
+  postgres:
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB:       leave_tracking
-      POSTGRES_USER:     postgres
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Admin@123}
+      POSTGRES_DB: ${POSTGRES_DB:-leave_tracking}
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d leave_tracking"]
-      interval:     5s
-      timeout:      5s
-      retries:      10
-      start_period: 10s
-    # Mapped to 5433 on the host to avoid colliding with a local PostgreSQL on 5432
-    ports:
-      - "127.0.0.1:5433:5432"
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # ── Next.js application ─────────────────────────────────────────────────────
-  app:
+  backend:
     build:
-      context:    .
+      context: ./backend
       dockerfile: Dockerfile
-      # Pass a target to rebuild only when source changes:
-      # target: runner
     restart: unless-stopped
-    ports:
-      - "${APP_PORT:-3001}:3000"
-    environment:
-      # Database — uses the service name "db" as the host
-      DATABASE_URL:  "postgresql://postgres:${POSTGRES_PASSWORD:-Admin@123}@db:5432/leave_tracking"
-      DIRECT_URL:    "postgresql://postgres:${POSTGRES_PASSWORD:-Admin@123}@db:5432/leave_tracking"
-
-      # Auth secrets — REQUIRED, override in .env.docker.local
-      JWT_SECRET:         ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-
-      # Email (optional — leave blank to disable)
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM:     ${EMAIL_FROM:-noreply@localhost}
-
-      # Public URL (update if deploying behind a domain/proxy)
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-
-      NODE_ENV: production
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
-    # Optional: forward logs to a file on the host
-    # logging:
-    #   driver: "json-file"
-    #   options:
-    #     max-size: "10m"
-    #     max-file: "3"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-Admin@123}@postgres:5432/${POSTGRES_DB:-leave_tracking}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-Admin@123}@postgres:5432/${POSTGRES_DB:-leave_tracking}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@yourdomain.com}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      NODE_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      PORT: 5000
+    expose:
+      - "5000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""   # empty = use nginx proxy at /api
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_PORT:-80}:80"
 
 volumes:
-  pg_data:
-    driver: local
+  postgres_data:
