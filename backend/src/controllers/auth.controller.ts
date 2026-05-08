@@ -121,8 +121,8 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
 
     logger.info("User logged in", { userId: user.id, role: roleName });
 
-    res.cookie("accessToken", accessToken, COOKIE_OPTIONS(15 * 60));
-    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS(rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60));
+    res.cookie("accessToken", accessToken, COOKIE_OPTIONS(15 * 60 * 1000));
+    res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS(rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000));
 
     res.json({
       success: true,
@@ -246,8 +246,8 @@ export async function refresh(req: Request, res: Response, next: NextFunction): 
       }),
     ]);
 
-    res.cookie("accessToken", newAccessToken, COOKIE_OPTIONS(15 * 60));
-    res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS(isLongSession ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60));
+    res.cookie("accessToken", newAccessToken, COOKIE_OPTIONS(15 * 60 * 1000));
+    res.cookie("refreshToken", newRefreshToken, COOKIE_OPTIONS(isLongSession ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000));
 
     res.json({
       success: true,
